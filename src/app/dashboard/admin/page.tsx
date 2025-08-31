@@ -46,6 +46,12 @@ const UsersIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
   </svg>
 )
 
+const RankingsIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+)
+
 const ArrowRightIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -181,6 +187,16 @@ export default function AdminDashboard() {
       textColor: 'text-green-600'
     },
     {
+      title: 'Student Rankings',
+      description: 'View detailed student performance metrics, rankings, and analytics',
+      href: '/dashboard/admin/rankings',
+      icon: RankingsIcon,
+      color: 'bg-gradient-to-br from-amber-500 to-amber-600',
+      stat: `${stats.totalStudents} students`,
+      bgColor: 'from-amber-50 to-amber-100',
+      textColor: 'text-amber-600'
+    },
+    {
       title: 'Grading Queue',
       description: 'Review, evaluate, and provide feedback on student submissions',
       href: '/dashboard/grading',
@@ -272,13 +288,13 @@ export default function AdminDashboard() {
             </div>
             
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[...Array(4)].map((_, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(5)].map((_, index) => (
                   <ActionCardSkeleton key={index} />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {adminActions.map((action, index) => (
                   <Link
                     key={index}

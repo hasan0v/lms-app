@@ -11,14 +11,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  eslint: {
-    // Allow production builds to successfully complete even if there are ESLint errors
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // Allow production builds to successfully complete even if there are TypeScript errors
-    ignoreBuildErrors: true,
-  },
+
   // Disable static generation for all pages to avoid build-time environment variable issues
   output: 'standalone',
   // Allow cross-origin requests for development

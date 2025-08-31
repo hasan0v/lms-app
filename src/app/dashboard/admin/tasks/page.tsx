@@ -39,7 +39,7 @@ interface TaskWithDetails {
         id: string
         title: string
       }
-    }
+    } | null
   } | null
   _count?: {
     submissions: number
@@ -130,7 +130,28 @@ export default function AdminTasksPage() {
 
       const tasksData = (data || []).map(item => {
         const topic = Array.isArray(item.topic) ? item.topic[0] : item.topic
+        
+        // Handle case where topic is null
+        if (!topic) {
+          return {
+            ...item,
+            topic: null
+          }
+        }
+        
         const topicModule = Array.isArray(topic.module) ? topic.module[0] : topic.module
+        
+        // Handle case where module is null
+        if (!topicModule) {
+          return {
+            ...item,
+            topic: {
+              ...topic,
+              module: null
+            }
+          }
+        }
+        
         const course = Array.isArray(topicModule.course) ? topicModule.course[0] : topicModule.course
 
         return {
@@ -577,9 +598,13 @@ export default function AdminTasksPage() {
                         </div>
                       </div>
 
-                      {task.topic && (
+                      {task.topic && task.topic.module && task.topic.module.course ? (
                         <p className="text-sm text-gray-600 mb-2">
                           📚 {task.topic.module.course.title} › {task.topic.module.title} › {task.topic.title}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-500 mb-2">
+                          📚 No course assignment
                         </p>
                       )}
 

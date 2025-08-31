@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FileText, CheckCircle, Star, Calendar, MessageSquare } from 'lucide-react'
+import { FileText, CheckCircle, Star, Calendar, MessageSquare, TrendingUp, Users } from 'lucide-react'
 
 interface GradeWithDetails {
   id: string
@@ -32,10 +32,259 @@ interface GradeWithDetails {
   }
 }
 
+interface ClassPerformanceData {
+  studentId: string
+  averageGrade: number
+  isCurrentUser: boolean
+  rank: number
+}
+
+interface DatabaseStudentPerformance {
+  average_grade: number
+  is_current_user: boolean
+  rank: number
+}
+
+interface LineChartProps {
+  data: ClassPerformanceData[]
+  currentUserAverage: number
+  className?: string
+}
+
+interface LineChartProps {
+  data: ClassPerformanceData[]
+  currentUserAverage: number
+  className?: string
+}
+
+// Simple Line Chart Component
+function ClassPerformanceChart({ data, currentUserAverage, className = '' }: LineChartProps) {
+  const [animated, setAnimated] = useState(false)
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(true), 100)
+    return () => clearTimeout(timer)
+  }, [])
+  
+  if (!data || data.length === 0) {
+    return (
+      <div className={`p-8 text-center text-gray-500 ${className}`}>
+        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <p>Not enough class data available yet</p>
+      </div>
+    )
+  }
+  
+  const maxGrade = Math.max(...data.map(d => d.averageGrade), 100)
+  const minGrade = Math.min(...data.map(d => d.averageGrade), 0)
+  const range = maxGrade - minGrade || 1
+  
+  const chartWidth = 400
+  const chartHeight = 200
+  const padding = 40
+  
+  const getX = (index: number) => padding + (index / (data.length - 1)) * (chartWidth - 2 * padding)
+  const getY = (grade: number) => chartHeight - padding - ((grade - minGrade) / range) * (chartHeight - 2 * padding)
+  
+  const pathData = data.map((point, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(point.averageGrade)}`).join(' ')
+  
+  const currentUserIndex = data.findIndex(d => d.isCurrentUser)
+  const currentUserRank = data.find(d => d.isCurrentUser)?.rank || 0
+  
+  return (
+    <div className={`bg-white/70 backdrop-blur-xl rounded-2xl p-6 border border-white/40 ${className}`}>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-indigo-600" />
+            Class Performance Comparison
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">Your exact position among all students (anonymized & privacy-protected)</p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-indigo-600">#{currentUserRank}</div>
+          <div className="text-xs text-gray-500">Your rank</div>
+        </div>
+      </div>
+      
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="w-full h-48 overflow-visible"
+          style={{ maxHeight: '200px' }}
+        >
+          {/* Grid lines */}
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6366f1" />
+              <stop offset="50%" stopColor="#8b5cf6" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </linearGradient>
+            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map(grade => {
+            const y = getY(grade)
+            return (
+              <line
+                key={grade}
+                x1={padding}
+                y1={y}
+                x2={chartWidth - padding}
+                y2={y}
+                stroke="#e5e7eb"
+                strokeWidth="1"
+                opacity="0.5"
+              />
+            )
+          })}
+          
+          {/* Area under curve */}
+          <path
+            d={`${pathData} L ${getX(data.length - 1)} ${chartHeight - padding} L ${padding} ${chartHeight - padding} Z`}
+            fill="url(#areaGradient)"
+            opacity={animated ? "1" : "0"}
+            style={{ transition: 'opacity 1s ease-out' }}
+          />
+          
+          {/* Main line */}
+          <path
+            d={pathData}
+            fill="none"
+            stroke="url(#lineGradient)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={animated ? "none" : "1000"}
+            strokeDashoffset={animated ? "0" : "1000"}
+            style={{ transition: 'stroke-dashoffset 2s ease-out' }}
+          />
+          
+          {/* Data points */}
+          {data.map((point, i) => (
+            <g key={i}>
+              <circle
+                cx={getX(i)}
+                cy={getY(point.averageGrade)}
+                r={point.isCurrentUser ? "8" : "4"}
+                fill={point.isCurrentUser ? "#f59e0b" : "#6366f1"}
+                stroke={point.isCurrentUser ? "#ffffff" : "none"}
+                strokeWidth={point.isCurrentUser ? "3" : "0"}
+                opacity={animated ? "1" : "0"}
+                style={{ 
+                  transition: `opacity 1s ease-out ${i * 0.1}s`,
+                  filter: point.isCurrentUser ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.5))' : 'none'
+                }}
+              />
+              {/* Grade value label for each point */}
+              {!point.isCurrentUser && (
+                <text
+                  x={getX(i)}
+                  y={getY(point.averageGrade) - 12}
+                  textAnchor="middle"
+                  className="fill-gray-600 text-xs font-medium"
+                  opacity={animated ? "0.8" : "0"}
+                  style={{ transition: `opacity 1s ease-out ${i * 0.1 + 0.5}s` }}
+                >
+                  {point.averageGrade.toFixed(1)}
+                </text>
+              )}
+            </g>
+          ))}
+          
+          {/* Current user label with exact grade */}
+          {currentUserIndex >= 0 && (
+            <g opacity={animated ? "1" : "0"} style={{ transition: 'opacity 1s ease-out 1s' }}>
+              <rect
+                x={getX(currentUserIndex) - 25}
+                y={getY(currentUserAverage) - 40}
+                width="50"
+                height="25"
+                rx="12"
+                fill="#f59e0b"
+              />
+              <text
+                x={getX(currentUserIndex)}
+                y={getY(currentUserAverage) - 30}
+                textAnchor="middle"
+                className="fill-white text-xs font-semibold"
+              >
+                You
+              </text>
+              <text
+                x={getX(currentUserIndex)}
+                y={getY(currentUserAverage) - 18}
+                textAnchor="middle"
+                className="fill-white text-xs font-bold"
+              >
+                {currentUserAverage.toFixed(1)}
+              </text>
+            </g>
+          )}
+          
+          {/* Y-axis labels */}
+          {[0, 25, 50, 75, 100].map(grade => (
+            <text
+              key={grade}
+              x={padding - 10}
+              y={getY(grade) + 4}
+              textAnchor="end"
+              className="fill-gray-500 text-xs"
+            >
+              {grade}
+            </text>
+          ))}
+        </svg>
+        
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+            <span className="text-gray-600">Other Students (Anonymized)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-amber-500 ring-2 ring-white"></div>
+            <span className="text-gray-600">Your Performance</span>
+          </div>
+        </div>
+        
+        {/* Privacy Notice */}
+        <div className="mt-3 text-xs text-center text-gray-500 bg-gray-50 rounded-lg p-2">
+          🔒 Privacy Protected: Other students&apos; names are not visible. This chart shows exact grade positions.
+        </div>
+        
+        {/* Performance insights */}
+        <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+          <div className="bg-blue-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-blue-600">{data.length}</div>
+            <div className="text-xs text-blue-600">Total Students</div>
+          </div>
+          <div className="bg-green-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-green-600">
+              {((data.length - currentUserRank + 1) / data.length * 100).toFixed(0)}%
+            </div>
+            <div className="text-xs text-green-600">Better Than</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-3">
+            <div className="text-lg font-bold text-purple-600">
+              {(data.reduce((sum, d) => sum + d.averageGrade, 0) / data.length).toFixed(1)}
+            </div>
+            <div className="text-xs text-purple-600">Class Average</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function StudentGradesPage() {
   const { user } = useAuth()
   const [grades, setGrades] = useState<GradeWithDetails[]>([])
   const [loading, setLoading] = useState(true)
+  const [classPerformanceData, setClassPerformanceData] = useState<ClassPerformanceData[]>([])
   const [stats, setStats] = useState({
     totalSubmissions: 0,
     gradedSubmissions: 0,
@@ -71,6 +320,7 @@ export default function StudentGradesPage() {
             totalPoints: 0,
             averageGrade: 0
           })
+          setClassPerformanceData([])
           return
         }
 
@@ -156,6 +406,9 @@ export default function StudentGradesPage() {
           totalPoints,
           averageGrade
         })
+
+        // Fetch class performance data (anonymized)
+        await fetchClassPerformanceData()
       } catch (error) {
         console.error('Error fetching grades:', error)
         
@@ -166,6 +419,42 @@ export default function StudentGradesPage() {
         }
       } finally {
         setLoading(false)
+      }
+    }
+
+    const fetchClassPerformanceData = async () => {
+      try {
+        // Use secure function to get anonymized class performance data
+        const { data: classPerformanceResult, error } = await supabase
+          .rpc('get_anonymized_class_performance')
+
+        if (error) {
+          console.error('Error fetching class performance:', error)
+          setClassPerformanceData([])
+          return
+        }
+
+        if (!classPerformanceResult || classPerformanceResult.length === 0) {
+          console.log('No class performance data available')
+          setClassPerformanceData([])
+          return
+        }
+
+        // Transform the exact anonymized data from the database
+        const anonymizedData: ClassPerformanceData[] = classPerformanceResult.map((student: DatabaseStudentPerformance, index: number) => ({
+          studentId: student.is_current_user ? user?.id || 'current' : `student-${index + 1}`,
+          averageGrade: student.average_grade,
+          isCurrentUser: student.is_current_user,
+          rank: student.rank
+        }))
+
+        // Sort by rank for proper display
+        anonymizedData.sort((a, b) => a.rank - b.rank)
+        
+        setClassPerformanceData(anonymizedData)
+      } catch (error) {
+        console.error('Error fetching class performance data:', error)
+        setClassPerformanceData([])
       }
     }
 
@@ -197,6 +486,29 @@ export default function StudentGradesPage() {
                 <div className="h-36 bg-white/70 backdrop-blur-xl border border-white/30 rounded-3xl p-6 flex flex-col justify-between animate-pulse" />
               </div>
             ))}
+          </div>
+          <div className="mb-8 px-2">
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 border border-white/40 animate-pulse">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="h-6 w-64 bg-gray-200/60 rounded mb-2" />
+                  <div className="h-4 w-48 bg-gray-200/50 rounded" />
+                </div>
+                <div className="text-right">
+                  <div className="h-8 w-12 bg-gray-200/60 rounded mb-1" />
+                  <div className="h-3 w-16 bg-gray-200/50 rounded" />
+                </div>
+              </div>
+              <div className="h-48 bg-gray-200/40 rounded-lg mb-4" />
+              <div className="grid grid-cols-3 gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="bg-gray-100/60 rounded-lg p-3">
+                    <div className="h-6 w-8 bg-gray-200/60 rounded mb-1" />
+                    <div className="h-3 w-16 bg-gray-200/50 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="space-y-4 px-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -335,6 +647,15 @@ export default function StudentGradesPage() {
           </div>
         </div>
 
+        {/* Class Performance Comparison Chart */}
+        {classPerformanceData.length > 0 && stats.gradedSubmissions > 0 && (
+          <ClassPerformanceChart
+            data={classPerformanceData}
+            currentUserAverage={stats.averageGrade}
+            className="mb-8"
+          />
+        )}
+
         {/* Grades List */}
         {grades.length > 0 ? (
           <div className="space-y-6">
@@ -346,17 +667,30 @@ export default function StudentGradesPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex-1 min-w-0">
                     <div>
-                      <p className="text-lg font-semibold text-gray-900 truncate">
-                        <Link 
-                          href={`/dashboard/courses/${grade.task.topic.module.course.id}`}
-                          className="hover:text-blue-600 transition-colors"
-                        >
-                          {grade.task.topic.module.course.title}
-                        </Link>
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {grade.task.topic.module.title} › {grade.task.topic.title}
-                      </p>
+                      {grade.task.topic?.module?.course ? (
+                        <>
+                          <p className="text-lg font-semibold text-gray-900 truncate">
+                            <Link 
+                              href={`/dashboard/courses/${grade.task.topic.module.course.id}`}
+                              className="hover:text-blue-600 transition-colors"
+                            >
+                              {grade.task.topic.module.course.title}
+                            </Link>
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {grade.task.topic.module.title} › {grade.task.topic.title}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-semibold text-gray-900 truncate">
+                            Assignment Task
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            No course assignment
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
