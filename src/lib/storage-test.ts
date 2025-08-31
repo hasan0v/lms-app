@@ -2,6 +2,7 @@
 // Run this in your browser console after authentication to test storage functionality
 
 import { supabase } from '@/lib/supabase'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { uploadProfileImage, uploadTaskFile, ensureStorageBuckets } from '@/lib/storage'
 
 export async function testStorageIntegration() {

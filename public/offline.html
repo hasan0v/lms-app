@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - Süni İntellekt LMS</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      line-height: 1.6;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 600px;
+      padding: 3rem 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+      animation: slideUp 0.8s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon {
+      font-size: 5rem;
+      margin-bottom: 2rem;
+      animation: bounce 2s infinite;
+      display: inline-block;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-15px);
+      }
+      60% {
+        transform: translateY(-7px);
+      }
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      background: linear-gradient(45deg, #ffffff, #f0f0f0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 1.3rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+
+    .description {
+      font-size: 1.1rem;
+      margin-bottom: 3rem;
+      opacity: 0.8;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .features {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 2rem;
+      margin: 2rem 0;
+      text-align: left;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .features h3 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 0;
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .feature-item::before {
+      content: "✓";
+      color: #4ade80;
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin-right: 0.75rem;
+      width: 20px;
+      text-align: center;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .btn {
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 1rem 2.5rem;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 200px;
+      justify-content: center;
+    }
+
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+      background: #f8f9fa;
+    }
+
+    .btn:active {
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+    }
+
+    .status {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .footer {
+      margin-top: 3rem;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        margin: 1rem;
+        padding: 2rem 1.5rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .subtitle {
+        font-size: 1.1rem;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        min-width: unset;
+      }
+    }
+
+    /* Dark mode detection */
+    @media (prefers-color-scheme: dark) {
+      .btn {
+        background: #1f2937;
+        color: white;
+      }
+
+      .btn:hover {
+        background: #374151;
+      }
+    }
+
+    /* Reduce motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      .container {
+        animation: none;
+      }
+
+      .icon {
+        animation: none;
+      }
+
+      .status-indicator {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📱</div>
+    <h1>Offline Rejimdə</h1>
+    <p class="subtitle">İnternet bağlantısı mövcud deyil</p>
+    <p class="description">
+      Narahat olmayın! Tətbiqin əsas funksiyaları hələ də əlçatandır. 
+      Keşlənmiş məzmun və materiallardan istifadə edə bilərsiniz.
+    </p>
+
+    <div class="features">
+      <h3>🚀 Offline Mövcud Funksiyalar</h3>
+      <div class="features-grid">
+        <div class="feature-item">Keşlənmiş kurslar</div>
+        <div class="feature-item">Yüklənmiş materiallar</div>
+        <div class="feature-item">Tapşırıq ətraflı məlumatları</div>
+        <div class="feature-item">Profil məlumatları</div>
+        <div class="feature-item">Offline yazışma</div>
+        <div class="feature-item">Əvvəlki axtarış nəticələri</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="checkConnection()">
+        🔄 Bağlantını Yoxla
+      </button>
+      <a href="/dashboard" class="btn btn-secondary">
+        📚 Keşlənmiş Məzmuna Get
+      </a>
+    </div>
+
+    <div class="status">
+      <span class="status-indicator"></span>
+      Bağlantı Status: Offline
+    </div>
+
+    <div class="footer">
+      <p>
+        Bağlantı bərpa olunduqda avtomatik olaraq sinxronlaşacaq
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Check for network connectivity
+    function checkConnection() {
+      const button = document.querySelector('.btn');
+      const originalText = button.innerHTML;
+      
+      button.innerHTML = '⏳ Yoxlanır...';
+      button.disabled = true;
+      
+      // Try to fetch a simple resource
+      fetch('/favicon.ico', { 
+        method: 'HEAD',
+        cache: 'no-cache'
+      })
+      .then(response => {
+        if (response.ok) {
+          button.innerHTML = '✅ Bağlantı Bərpa Olundu!';
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        } else {
+          throw new Error('Still offline');
+        }
+      })
+      .catch(() => {
+        button.innerHTML = '❌ Hələ də Offline';
+        setTimeout(() => {
+          button.innerHTML = originalText;
+          button.disabled = false;
+        }, 2000);
+      });
+    }
+
+    // Listen for online/offline events
+    window.addEventListener('online', () => {
+      const indicator = document.querySelector('.status-indicator');
+      const status = document.querySelector('.status');
+      
+      indicator.style.background = '#10b981';
+      status.innerHTML = '<span class="status-indicator"></span>Bağlantı Status: Online - Yönləndiirlir...';
+      
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
+    });
+
+    window.addEventListener('offline', () => {
+      const indicator = document.querySelector('.status-indicator');
+      const status = document.querySelector('.status');
+      
+      indicator.style.background = '#ef4444';
+      status.innerHTML = '<span class="status-indicator"></span>Bağlantı Status: Offline';
+    });
+
+    // Initial connection check
+    if (navigator.onLine) {
+      setTimeout(checkConnection, 1000);
+    }
+
+    // Auto-retry connection every 30 seconds
+    setInterval(() => {
+      if (!navigator.onLine) return;
+      
+      fetch('/favicon.ico', { 
+        method: 'HEAD',
+        cache: 'no-cache'
+      })
+      .then(response => {
+        if (response.ok) {
+          window.location.href = '/dashboard';
+        }
+      })
+      .catch(() => {
+        // Still offline, continue checking
+      });
+    }, 30000);
+
+    // Service Worker messaging
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'CACHE_UPDATED') {
+          console.log('Cache updated while offline');
+        }
+      });
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        if (event.target.classList.contains('btn')) {
+          event.target.click();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

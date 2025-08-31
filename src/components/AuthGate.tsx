@@ -12,7 +12,7 @@ interface AuthGateProps {
 }
 
 export function AuthGate({ children, requiredRole, fallback }: AuthGateProps) {
-  const { user, profile, loading, profileError, refreshingProfile, refreshProfile } = useAuth()
+  const { user, profile, loading, authError, refreshingProfile, refreshProfile } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -66,7 +66,7 @@ export function AuthGate({ children, requiredRole, fallback }: AuthGateProps) {
   }
 
   // Profile error fallback (user logged in but profile failed to load)
-  if (user && profileError && !profile) {
+  if (user && authError && authError.type === 'PROFILE' && !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-md glass-card p-8">

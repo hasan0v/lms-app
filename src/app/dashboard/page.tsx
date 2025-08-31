@@ -3,8 +3,10 @@
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { DashboardSkeleton } from '@/components/OptimizedLoader'
+import { cache, generateCacheKey } from '@/lib/cache'
 
 interface DashboardStats {
   totalCourses: number
@@ -15,6 +17,8 @@ interface DashboardStats {
   pendingGrading: number
   totalStudents: number
 }
+
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 // Enhanced icon components
 const BookIcon = ({ className = "w-6 h-6" }) => (
@@ -77,6 +81,20 @@ export default function DashboardPage() {
       if (!profile) return
 
       try {
+        // Generate cache key based on user role and ID
+        const cacheKey = generateCacheKey('dashboard_stats', {
+          userId: profile.id,
+          role: profile.role
+        })
+
+        // Try cache first
+        const cachedStats = cache.get(cacheKey) as DashboardStats | undefined
+        if (cachedStats) {
+          setStats(cachedStats)
+          setLoading(false)
+          return
+        }
+
         // Fetch total courses
         const { count: totalCourses } = await supabase
           .from('courses')
@@ -111,12 +129,11 @@ export default function DashboardPage() {
           ])
 
           totalTasks = tasksRes.count || 0
-            
           pendingGrading = pendingRes.count || 0
           totalStudents = studentsRes.count || 0
         }
 
-        setStats({
+        const dashboardStats: DashboardStats = {
           totalCourses: totalCourses || 0,
           enrolledCourses,
           completedSubmissions,
@@ -124,9 +141,24 @@ export default function DashboardPage() {
           totalTasks,
           pendingGrading,
           totalStudents,
-        })
+        }
+
+        // Cache the results
+        cache.set(cacheKey, dashboardStats, CACHE_DURATION)
+        setStats(dashboardStats)
       } catch (error) {
         console.error('Error fetching dashboard stats:', error)
+        
+        // Set fallback stats to prevent empty state
+        setStats({
+          totalCourses: 0,
+          enrolledCourses: 0,
+          completedSubmissions: 0,
+          pendingSubmissions: 0,
+          totalTasks: 0,
+          pendingGrading: 0,
+          totalStudents: 0,
+        })
       } finally {
         setLoading(false)
       }
@@ -137,7 +169,13 @@ export default function DashboardPage() {
 
   const isAdmin = profile?.role === 'admin'
 
-  const StatCard = ({ title, value, icon, gradient, delay = 0 }: {
+  // Memoize greeting to prevent recalculation
+  const userGreeting = useMemo(() => {
+    if (!profile?.full_name) return 'User'
+    return profile.full_name.split(' ')[0] || 'User'
+  }, [profile?.full_name])
+
+  const StatCard = useCallback(({ title, value, icon, gradient, delay = 0 }: {
     title: string
     value: number | string
     icon: React.ReactNode
@@ -158,9 +196,9 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
-  )
+  ), [])
 
-  const QuickActionCard = ({ title, description, href, icon, delay = 0 }: {
+  const QuickActionCard = useCallback(({ title, description, href, icon, delay = 0 }: {
     title: string
     description: string
     href: string
@@ -185,7 +223,12 @@ export default function DashboardPage() {
         <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0 ml-4" />
       </div>
     </Link>
-  )
+  ), [])
+
+  // Show optimized loading state
+  if (loading) {
+    return <DashboardSkeleton />
+  }
 
   return (
     <DashboardLayout>
@@ -196,7 +239,7 @@ export default function DashboardPage() {
             <TrendingUpIcon className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">
-            Welcome back, {profile?.full_name?.split(' ')[0] || 'User'}! <span className="text-yellow-400">👋</span>
+            Welcome back, {userGreeting}! <span className="text-yellow-400">👋</span>
           </h1>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">
             {isAdmin 

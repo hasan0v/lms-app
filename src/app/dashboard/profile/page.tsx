@@ -26,6 +26,13 @@ interface FormData {
   bio: string
 }
 
+interface ProfileUpdateData {
+  full_name: string
+  profile_image_url?: string | null
+  phone_number?: string | null
+  bio?: string | null
+}
+
 interface ValidationErrors {
   full_name?: string
   email?: string
@@ -68,14 +75,19 @@ export default function ProfilePage() {
       setLoading(true)
       try {
         // First, try to get all columns including bio and phone_number
-        let { data, error } = await supabase
+        let { data } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        const { error: initialError } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('id', user.id)
           .single()
 
         // If bio/phone_number columns don't exist yet, fallback to basic columns
-        if (error && error.message.includes('column')) {
+        if (initialError && initialError.message.includes('column')) {
           console.log('Bio/phone columns not found, using basic profile data')
           const { data: basicData, error: basicError } = await supabase
             .from('user_profiles')
@@ -93,7 +105,7 @@ export default function ProfilePage() {
           }
         }
 
-        if (error && !error.message.includes('column')) throw error
+        if (initialError && !initialError.message.includes('column')) throw initialError
         
         setExtendedProfile({
           ...data,
@@ -286,7 +298,7 @@ export default function ProfilePage() {
       }
 
       // Update user profile - try with new columns first, fallback if they don't exist
-      let profileUpdateData: any = {
+      const profileUpdateData: ProfileUpdateData = {
         full_name: formData.full_name,
         profile_image_url: imageUrl
       }
@@ -317,8 +329,8 @@ export default function ProfilePage() {
         } else if (profileError) {
           throw profileError
         }
-      } catch (error: any) {
-        if (error.message.includes('column')) {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message.includes('column')) {
           // Fallback: update only basic fields
           const { error: basicError } = await supabase
             .from('user_profiles')
@@ -365,9 +377,10 @@ export default function ProfilePage() {
       setIsEditing(false)
       setImageFile(null)
       showNotification('success', 'Profile updated successfully!')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error)
-      showNotification('error', error.message || 'Failed to update profile')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile'
+      showNotification('error', errorMessage)
     } finally {
       setSaving(false)
     }

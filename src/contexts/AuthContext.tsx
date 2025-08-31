@@ -1,89 +1,112 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, UserProfile } from '@/lib/supabase'
 import { ensureStorageBuckets } from '@/lib/storage'
-import { usePathname, useRouter } from 'next/navigation'
+import { requestManager } from '@/lib/request-manager'
+
+type AuthState = 'INITIALIZING' | 'AUTHENTICATING' | 'FETCHING_PROFILE' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ERROR'
+
+interface AuthError {
+  type: 'SESSION' | 'PROFILE' | 'NETWORK'
+  message: string
+  retryable?: boolean
+}
 
 interface AuthContextType {
   user: User | null
   profile: UserProfile | null
   session: Session | null
-  loading: boolean              // overall initial auth loading (session + first profile fetch)
-  profileError: string | null   // profile-specific error state
+  authState: AuthState
+  authError: AuthError | null
+  loading: boolean
   refreshingProfile: boolean
   signUp: (email: string, password: string, fullName: string) => Promise<{ error?: string }>
   signIn: (email: string, password: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
-  refreshProfile: () => Promise<void>
-  clearProfileCache: () => void
+  refreshProfile: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [profileError, setProfileError] = useState<string | null>(null)
+  const [authState, setAuthState] = useState<AuthState>('INITIALIZING')
+  const [authError, setAuthError] = useState<AuthError | null>(null)
   const [refreshingProfile, setRefreshingProfile] = useState(false)
-  const [isClient, setIsClient] = useState(false)
-  const router = useRouter()
-  const pathname = usePathname()
+  
+  const isFetchingProfile = useRef(false)
+  const lastFetchTimeRef = useRef<number>(0)
+  
+  const loading = authState === 'INITIALIZING' || authState === 'FETCHING_PROFILE'
 
-  const PROFILE_CACHE_VERSION = 1
-  const PROFILE_CACHE_KEY = `profile-cache-v${PROFILE_CACHE_VERSION}`
+  const PROFILE_CACHE_KEY = 'profile-cache-v1'
 
-  const loadCachedProfile = useCallback((uid: string) => {
-    if (typeof window === 'undefined') return
+  const writeToCache = (data: UserProfile) => {
     try {
-      const raw = localStorage.getItem(PROFILE_CACHE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (parsed?.profile?.id === uid) {
-        setProfile(parsed.profile)
-      }
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ profile: data, timestamp: Date.now() }))
     } catch (e) {
-      console.warn('Failed to parse cached profile', e)
+      console.warn('Failed to write to profile cache', e)
     }
-  }, [PROFILE_CACHE_KEY])
+  }
 
-  const writeCachedProfile = useCallback((data: UserProfile | null) => {
-    if (typeof window === 'undefined') return
+  const loadFromCache = (userId: string): UserProfile | null => {
     try {
-      if (!data) {
+      const item = localStorage.getItem(PROFILE_CACHE_KEY)
+      if (!item) return null
+      const { profile, timestamp } = JSON.parse(item)
+      if (profile.id !== userId) {
         localStorage.removeItem(PROFILE_CACHE_KEY)
-        return
+        return null
       }
-      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ profile: data, updatedAt: Date.now(), version: PROFILE_CACHE_VERSION }))
+      // Cache is valid for 5 minutes
+      if (Date.now() - timestamp > 5 * 60 * 1000) {
+        localStorage.removeItem(PROFILE_CACHE_KEY)
+        return null
+      }
+      return profile
     } catch (e) {
-      console.warn('Failed to write cached profile', e)
+      console.warn('Failed to read from profile cache', e)
+      return null
     }
-  }, [PROFILE_CACHE_KEY, PROFILE_CACHE_VERSION])
+  }
+  
+  const clearCache = () => {
+    try {
+      localStorage.removeItem(PROFILE_CACHE_KEY)
+    } catch (e) {
+      console.warn('Failed to clear profile cache', e)
+    }
+  }
 
-  const clearProfileCache = useCallback(() => {
-    if (typeof window === 'undefined') return
-    try { localStorage.removeItem(PROFILE_CACHE_KEY) } catch {}
-  }, [PROFILE_CACHE_KEY])
-
-  useEffect(() => {
-    setIsClient(true)
-
-    // Check if Supabase is properly configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-      console.warn('Supabase not configured properly')
-      setLoading(false)
+  const fetchProfile = useCallback(async (userId: string, isRetry = false) => {
+    if (isFetchingProfile.current && !isRetry) {
+      console.log('[Auth] Profile fetch already in progress.')
       return
     }
-    
-    // Initialize storage buckets when app starts
-    ensureStorageBuckets().catch(console.error)
-  }, [])
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    setProfileError(null)
+    const now = Date.now()
+    if (now - lastFetchTimeRef.current < 5000 && !isRetry) {
+      console.log('[Auth] Profile fetch throttled.')
+      return
+    }
+
+    isFetchingProfile.current = true
+    lastFetchTimeRef.current = now
+    setAuthState('FETCHING_PROFILE')
+
+    const context = 'auth-profile'
+    const key = `profile-${userId}`
+
+    if (requestManager.isCircuitBreakerOpen(context, key)) {
+      setAuthError({ type: 'PROFILE', message: 'Service temporarily unavailable.', retryable: false })
+      isFetchingProfile.current = false
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -91,134 +114,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single()
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.warn('No profile found for user:', userId)
-          setProfile(null)
-          writeCachedProfile(null)
-          return
-        }
-        setProfileError(error.message)
-        throw error
-      }
-      setProfile(data)
-      writeCachedProfile(data)
-    } catch (error: unknown) {
-      console.error('Error in fetchProfile:', error)
-      if (!profileError) {
-        setProfileError('Failed to load profile')
-      }
-    }
-  }, [profileError, writeCachedProfile])
+      if (error) throw error
 
-  const refreshProfile = useCallback(async () => {
-    if (!user) return
-    setRefreshingProfile(true)
-    try {
-      await fetchProfile(user.id)
+      setProfile(data)
+      writeToCache(data)
+      setAuthState('AUTHENTICATED')
+      setAuthError(null)
+      requestManager.recordSuccess(context, key)
+    } catch (error: unknown) {
+      console.error('[Auth] Error fetching profile:', error)
+      setAuthError({ type: 'PROFILE', message: 'Failed to load profile.', retryable: true })
+      setAuthState('ERROR')
+      requestManager.recordFailure(context, key)
     } finally {
-      setRefreshingProfile(false)
+      isFetchingProfile.current = false
     }
-  }, [user, fetchProfile])
+  }, [])
 
   useEffect(() => {
-    if (!isClient) return
+    ensureStorageBuckets().catch(console.error)
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        // Optimistic: load cached profile immediately if present
-        loadCachedProfile(session.user.id)
-        fetchProfile(session.user.id).finally(() => setLoading(false))
+        const cachedProfile = loadFromCache(session.user.id)
+        if (cachedProfile) {
+          setProfile(cachedProfile)
+          setAuthState('AUTHENTICATED')
+        } else {
+          fetchProfile(session.user.id)
+        }
       } else {
-        setLoading(false)
+        setAuthState('UNAUTHENTICATED')
       }
     })
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
 
-      if (session?.user) {
-        loadCachedProfile(session.user.id)
-        await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-        clearProfileCache()
-      }
-
-      setLoading(false)
-
-      // Only redirect on client side, and avoid ping-pong by checking current path
-      if (typeof window !== 'undefined') {
-        if (event === 'SIGNED_IN') {
-          // If coming from any /auth/* page, send to dashboard
-          if (pathname?.startsWith('/auth')) {
-            router.replace('/dashboard')
-          }
-        } else if (event === 'SIGNED_OUT') {
-          if (!pathname?.startsWith('/auth')) {
-            router.replace('/auth/signin')
-          }
+      if (event === 'SIGNED_IN') {
+        if (session?.user) {
+          fetchProfile(session.user.id)
         }
+      } else if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        clearCache()
+        setAuthState('UNAUTHENTICATED')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [router, pathname, isClient, fetchProfile, loadCachedProfile, clearProfileCache])
+  }, [fetchProfile])
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-      return { error: 'Authentication service not configured' }
-    }
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    })
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } })
     return { error: error?.message }
   }
 
   const signIn = async (email: string, password: string) => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-      return { error: 'Authentication service not configured' }
-    }
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error: error?.message }
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    clearProfileCache()
+    await supabase.auth.signOut()
+    setProfile(null)
+    clearCache()
   }
+
+  const refreshProfile = useCallback(() => {
+    if (!user) return
+    setRefreshingProfile(true)
+    fetchProfile(user.id, true).finally(() => setRefreshingProfile(false))
+  }, [user, fetchProfile])
 
   const value: AuthContextType = {
     user,
     profile,
     session,
+    authState,
+    authError,
     loading,
-    profileError,
     refreshingProfile,
     signUp,
     signIn,
     signOut,
     refreshProfile,
-    clearProfileCache,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

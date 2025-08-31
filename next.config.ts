@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
 
 const nextConfig: NextConfig = {
   images: {
@@ -11,9 +16,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-
-  // Disable static generation for all pages to avoid build-time environment variable issues
-  output: 'standalone',
+  // Only use standalone for production builds
+  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
   // Allow cross-origin requests for development
   allowedDevOrigins: ['127.0.0.1'],
   async headers() {
@@ -31,8 +35,27 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Fix MIME types for JavaScript files
+      {
+        source: '/_next/static/chunks/:path*.js',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/chunks/:path*.mjs',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
     ];
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

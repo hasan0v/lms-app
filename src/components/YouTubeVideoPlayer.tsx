@@ -34,7 +34,7 @@ export default function YouTubeVideoPlayer({ videoUrl, title, className = '' }: 
     )
   }
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&showinfo=0&modestbranding=1`
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=1&cc_load_policy=0&hl=en&autohide=0&theme=dark`
 
   return (
     <div className={`bg-white rounded-lg shadow-md overflow-hidden ${className}`}>

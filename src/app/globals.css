@@ -20,8 +20,9 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Force light theme globally */
+  --background: #ffffff !important;
+  --foreground: #171717 !important;
   
   /* Modern Color System */
   --primary-50: #eff6ff;
@@ -114,12 +115,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Force light theme - override dark mode */
+    --background: #ffffff;
+    --foreground: #171717;
 
-  /* Scrollbar theme (dark) */
-  --scrollbar-track: #111827; /* neutral-900-ish */
-  --scrollbar-thumb: var(--secondary-600);
+  /* Scrollbar theme (light) */
+  --scrollbar-track: var(--neutral-100);
+  --scrollbar-thumb: var(--secondary-500);
   }
 }
 
@@ -128,13 +130,26 @@
   scroll-behavior: smooth;
 }
 
+html {
+  background-color: #ffffff !important;
+}
+
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--foreground) !important;
+  background: var(--background) !important;
+  background-color: #ffffff !important;
   font-family: 'Inter', var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure all containers maintain light background */
+#__next, 
+main, 
+.app-container,
+[data-theme] {
+  background-color: #ffffff !important;
 }
 
 /* Global Colored Scrollbars */

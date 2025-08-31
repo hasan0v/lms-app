@@ -45,7 +45,7 @@ export const Logo: React.FC<LogoProps> = ({
     lg: { badge: 'w-12 h-12 text-base', gap: 'gap-4', text: 'text-xl' }
   } as const;
 
-  const s = sizeMap[size];
+  const s = sizeMap[size] || sizeMap.md; // Fallback to medium if invalid size
   const brand = uppercase ? BRAND_NAME_UPPER : BRAND_NAME_STANDARD;
 
   return (
@@ -56,14 +56,14 @@ export const Logo: React.FC<LogoProps> = ({
       className={cn(
         'group inline-flex select-none items-center font-sans font-extrabold tracking-tight transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500',
         stacked && 'flex-col',
-        !stacked && s.gap,
+        !stacked && s?.gap,
         className
       )}
     >
       <div
         className={cn(
           'rounded-xl bg-gradient-to-br from-purple-200 via-violet-200 to-blue-200 flex items-center justify-center text-purple-700 shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-transform overflow-hidden group-hover:from-purple-300 group-hover:via-violet-300 group-hover:to-blue-300',
-          s.badge,
+          s?.badge,
           badgeClassName
         )}
       >
@@ -83,7 +83,7 @@ export const Logo: React.FC<LogoProps> = ({
         <span
           className={cn(
             'bg-gradient-to-r from-purple-600 via-violet-600 to-blue-600 bg-clip-text text-transparent group-hover:from-purple-500 group-hover:to-blue-500 transition-colors',
-            s.text,
+            s?.text,
             stacked && 'mt-2',
             textClassName
           )}

@@ -3,22 +3,45 @@
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNotifications } from '@/components/ui/NotificationSystem'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+
+interface ChatMessage {
+  id: string
+  content: string
+  created_at: string
+  user_id: string
+  user_profiles: {
+    id: string
+    full_name: string
+    profile_image_url: string | null
+  } | null
+  [key: string]: unknown
+}
+
+interface RawChatMessage {
+  id: string
+  content: string
+  created_at: string
+  user_id: string
+  user_profiles: Array<{
+    id: string
+    full_name: string
+    profile_image_url: string | null
+  }> | {
+    id: string
+    full_name: string
+    profile_image_url: string | null
+  } | null
+}
 
 export default function TestChatPage() {
   const { user } = useAuth()
   const { showSuccess, showError } = useNotifications()
   const [testMessage, setTestMessage] = useState('')
-  const [messages, setMessages] = useState<any[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      fetchTestData()
-    }
-  }, [user])
-
-  const fetchTestData = async () => {
+  const fetchTestData = useCallback(async () => {
     setLoading(true)
     try {
       console.log('Testing database connection...')
@@ -48,7 +71,7 @@ export default function TestChatPage() {
           content,
           created_at,
           user_id,
-          user_profiles (
+          user_profiles!inner (
             id,
             full_name,
             profile_image_url
@@ -58,14 +81,28 @@ export default function TestChatPage() {
 
       console.log('Join query result:', joinData, 'Error:', joinError)
 
-      setMessages(joinData || [])
+      // Transform the data to match our interface
+      const transformedMessages = (joinData || []).map((msg: RawChatMessage) => ({
+        ...msg,
+        user_profiles: Array.isArray(msg.user_profiles) 
+          ? msg.user_profiles[0] || null 
+          : msg.user_profiles
+      }))
+
+      setMessages(transformedMessages)
 
     } catch (error) {
       console.error('Test error:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (user) {
+      fetchTestData()
+    }
+  }, [user, fetchTestData])
 
   const sendTestMessage = async () => {
     if (!testMessage.trim() || !user) return
